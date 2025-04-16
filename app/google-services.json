@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "822201388629",
+    "project_id": "glimpse-c142f",
+    "storage_bucket": "glimpse-c142f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:822201388629:android:0f2a86a512077c1a9ecedc",
+        "android_client_info": {
+          "package_name": "com.example.instagram"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCtztJKS-N_QkngN_vfQeA4ZG7y-xkTJAM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
