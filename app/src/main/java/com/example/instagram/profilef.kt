@@ -1,59 +1,151 @@
 package com.example.instagram
 
+import android.app.Activity
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.MediaStore
+import android.util.Base64
+import android.view.*
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
+import com.google.android.material.appbar.MaterialToolbar
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import java.io.ByteArrayOutputStream
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
-
-/**
- * A simple [Fragment] subclass.
- * Use the [profilef.newInstance] factory method to
- * create an instance of this fragment.
- */
 class profilef : Fragment() {
-    // TODO: Rename and change types of parameters
-    private var param1: String? = null
-    private var param2: String? = null
+
+    private lateinit var profileUsername: TextView
+    private lateinit var profileImageView: ImageView
+    private val firestore = FirebaseFirestore.getInstance()
+    private val auth = FirebaseAuth.getInstance()
+    private val PICK_IMAGE_REQUEST = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        arguments?.let {
-            param1 = it.getString(ARG_PARAM1)
-            param2 = it.getString(ARG_PARAM2)
-        }
+        setHasOptionsMenu(true)
     }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        // Inflate the layout for this fragment
-        return inflater.inflate(R.layout.fragment_profilef, container, false)
+        val view = inflater.inflate(R.layout.fragment_profilef, container, false)
+
+        val toolbar = view.findViewById<MaterialToolbar>(R.id.profileToolbar)
+        toolbar?.let {
+            (activity as? AppCompatActivity)?.setSupportActionBar(it)
+        }
+
+        profileUsername = view.findViewById(R.id.profileUsername)
+        profileImageView = view.findViewById(R.id.profileImageView)
+
+        profileImageView.setOnClickListener {
+            openGallery()
+        }
+
+        val currentUser = auth.currentUser
+        currentUser?.let {
+            val userId = it.uid
+            fetchUserName(userId)
+            fetchProfileImage(userId)
+        }
+
+        return view
     }
 
-    companion object {
-        /**
-         * Use this factory method to create a new instance of
-         * this fragment using the provided parameters.
-         *
-         * @param param1 Parameter 1.
-         * @param param2 Parameter 2.
-         * @return A new instance of fragment profilef.
-         */
-        // TODO: Rename and change types and number of parameters
-        @JvmStatic
-        fun newInstance(param1: String, param2: String) =
-            profilef().apply {
-                arguments = Bundle().apply {
-                    putString(ARG_PARAM1, param1)
-                    putString(ARG_PARAM2, param2)
+    private fun fetchUserName(userId: String) {
+        firestore.collection("users").document(userId).get()
+            .addOnSuccessListener { document ->
+                if (document != null && document.exists()) {
+                    val userName = document.getString("name")
+                    profileUsername.text = userName ?: "No name available"
                 }
             }
+            .addOnFailureListener {
+                profileUsername.text = "Failed to load username"
+            }
+    }
+
+    private fun fetchProfileImage(userId: String) {
+        firestore.collection("users").document(userId).get()
+            .addOnSuccessListener { document ->
+                val base64Image = document.getString("profileImage")
+                base64Image?.let {
+                    val imageBytes = Base64.decode(it, Base64.DEFAULT)
+                    val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                    profileImageView.setImageBitmap(bitmap)
+                }
+            }
+    }
+
+    private fun openGallery() {
+        val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+        startActivityForResult(intent, PICK_IMAGE_REQUEST)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == PICK_IMAGE_REQUEST && resultCode == Activity.RESULT_OK && data != null) {
+            val imageUri = data.data
+            imageUri?.let {
+                val bitmap = getCompressedBitmap(it)
+                profileImageView.setImageBitmap(bitmap)
+                uploadProfileImage(bitmap)
+            }
+        }
+    }
+
+    private fun getCompressedBitmap(uri: Uri): Bitmap {
+        val source = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            ImageDecoder.createSource(requireActivity().contentResolver, uri)
+        } else {
+            return MediaStore.Images.Media.getBitmap(requireActivity().contentResolver, uri)
+        }
+        val originalBitmap = ImageDecoder.decodeBitmap(source)
+        val stream = ByteArrayOutputStream()
+        originalBitmap.compress(Bitmap.CompressFormat.JPEG, 40, stream)
+        val byteArray = stream.toByteArray()
+        return BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size)
+    }
+
+    private fun uploadProfileImage(bitmap: Bitmap) {
+        val stream = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 40, stream)
+        val byteArray = stream.toByteArray()
+        val base64Image = Base64.encodeToString(byteArray, Base64.DEFAULT)
+
+        val userId = auth.currentUser?.uid ?: return
+        firestore.collection("users").document(userId)
+            .update("profileImage", base64Image)
+            .addOnSuccessListener { /* Successfully saved */ }
+            .addOnFailureListener { /* Handle error */ }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        inflater.inflate(R.menu.profile_menu, menu)
+        super.onCreateOptionsMenu(menu, inflater)
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_settings -> {
+                // Handle settings
+                true
+            }
+            R.id.action_logout -> {
+                // Handle logout
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 }
