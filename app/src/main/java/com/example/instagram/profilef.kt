@@ -1,5 +1,6 @@
 package com.example.instagram
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Bitmap
@@ -15,7 +16,10 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
+import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.tabs.TabLayout
+import com.google.android.material.tabs.TabLayoutMediator
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.ByteArrayOutputStream
@@ -46,6 +50,26 @@ class profilef : Fragment() {
 
         profileUsername = view.findViewById(R.id.profileUsername)
         profileImageView = view.findViewById(R.id.profileImageView)
+        val addIcon: ImageView = view.findViewById(R.id.addText)
+        val tabLayout = view.findViewById<TabLayout>(R.id.profileTabLayout)
+        val viewPager = view.findViewById<ViewPager2>(R.id.profileViewPager)
+        viewPager.isUserInputEnabled = true
+        viewPager.setNestedScrollingEnabled(false)
+
+
+        val adapter = adapeter_profile(requireActivity()) // Use 'this' if in Activity, or 'requireActivity()' if in Fragment
+        viewPager.adapter = adapter
+
+        val tabTitles = arrayOf("Post", "Reel", "Tag")
+
+        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+            tab.text = tabTitles[position]
+        }.attach()
+
+        addIcon.setOnClickListener {
+            val intent = Intent(requireContext(), post_page::class.java)
+            startActivity(intent)
+        }
 
         profileImageView.setOnClickListener {
             openGallery()
@@ -61,6 +85,8 @@ class profilef : Fragment() {
         return view
     }
 
+
+    @SuppressLint("SetTextI18n")
     private fun fetchUserName(userId: String) {
         firestore.collection("users").document(userId).get()
             .addOnSuccessListener { document ->
@@ -130,11 +156,13 @@ class profilef : Fragment() {
             .addOnFailureListener { /* Handle error */ }
     }
 
+    @Deprecated("Deprecated in Java")
     override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
         inflater.inflate(R.menu.profile_menu, menu)
         super.onCreateOptionsMenu(menu, inflater)
     }
 
+    @Deprecated("Deprecated in Java")
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_settings -> {
@@ -148,4 +176,5 @@ class profilef : Fragment() {
             else -> super.onOptionsItemSelected(item)
         }
     }
+
 }
